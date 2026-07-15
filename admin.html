@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard | PlayPulse</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#2563eb" />
+  
+  <link rel="icon" type="image/png" href="favicon/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg" />
+  <link rel="shortcut icon" href="favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png" />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+  <script>
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('playpulse_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'));
+  </script>
+</head>
+<body class="admin-body">
+
+  <!-- ======= LOADING VIEW ======= -->
+  <div id="admin-loading" class="admin-centered-container">
+    <div class="admin-card">
+      <div class="spinner-lg" style="margin: 0 auto 20px;"></div>
+      <p>Verifying credentials...</p>
+    </div>
+  </div>
+
+  <!-- ======= LOGIN VIEW ======= -->
+  <div id="admin-login-screen" class="admin-centered-container" style="display: none;">
+    <div class="admin-card">
+      <img src="favicon/favicon.svg" alt="PlayPulse" class="admin-card-logo" />
+      <h1>Admin Portal</h1>
+      <p>Authorized access only. Please sign in with your administrator Google account to manage PlayPulse user activity.</p>
+      <button id="btn-admin-signin" class="btn-admin-login">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
+        Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <!-- ======= ACCESS DENIED VIEW ======= -->
+  <div id="admin-denied-screen" class="admin-centered-container" style="display: none;">
+    <div class="admin-card denied">
+      <i class="fa-solid fa-triangle-exclamation admin-card-icon-warning"></i>
+      <h1>Access Denied</h1>
+      <p>Your account does not have administrator privileges. Only authorized administrator emails can access this page.</p>
+      <div class="admin-card-actions">
+        <button id="btn-denied-logout" class="btn-primary-admin">
+          <i class="fa-solid fa-right-from-bracket"></i> Sign in with another account
+        </button>
+        <a href="app.html" class="btn-secondary-admin">
+          <i class="fa-solid fa-house"></i> Return to Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= DASHBOARD VIEW ======= -->
+  <div id="admin-dashboard-screen" class="admin-layout" style="display: none;">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-header" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 12px; overflow: hidden;">
+          <img src="favicon/favicon.svg" alt="PlayPulse" class="admin-sidebar-logo" style="flex-shrink: 0;" />
+          <span class="admin-sidebar-title" style="white-space: nowrap;">PlayPulse Admin</span>
+        </div>
+        <button id="btn-collapse-sidebar" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: var(--transition);" title="Collapse sidebar">
+          <i class="fa-solid fa-angle-left"></i>
+        </button>
+      </div>
+      <nav class="admin-sidebar-nav" style="display: flex; flex-direction: column; gap: 4px;">
+        <button class="admin-nav-item active" data-admin-tab="overview" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; font-family: inherit; font-size: 13px;">
+          <i class="fa-solid fa-chart-simple"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="admin-nav-item" data-admin-tab="students" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; font-family: inherit; font-size: 13px;">
+          <i class="fa-solid fa-users"></i>
+          <span>Students Directory</span>
+        </button>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Admin Mode</span>
+      </div>
+    </aside>
+
+    <!-- Main Panel -->
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div class="admin-topbar-title" id="admin-page-title">
+          <i class="fa-solid fa-chart-simple"></i> Admin Dashboard
+        </div>
+        <div class="admin-topbar-right">
+          <button id="btn-theme-admin" class="btn-circle-admin" title="Toggle theme">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <div class="admin-user-profile">
+            <img id="admin-user-avatar" class="admin-avatar" src="" alt="Admin" />
+            <span id="admin-user-name">Admin</span>
+          </div>
+          <button id="btn-admin-logout" class="btn-circle-admin" title="Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <section class="admin-content">
+        <!-- TAB PANEL: OVERVIEW (Active by default) -->
+        <div id="admin-panel-overview" class="admin-tab-panel-content">
+        <!-- Stats summary widgets -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="admin-stat-info">
+              <span id="stat-total-users" class="admin-stat-value">-</span>
+              <span class="admin-stat-label">Total Users</span>
+            </div>
+            <div class="admin-stat-icon">
+              <i class="fa-solid fa-users"></i>
+            </div>
+          </div>
+          
+          <div class="admin-stat-card">
+            <div class="admin-stat-info">
+              <span id="stat-active-streaks" class="admin-stat-value">-</span>
+              <span class="admin-stat-label">Active Streaks (>0)</span>
+            </div>
+            <div class="admin-stat-icon">
+              <i class="fa-solid fa-fire"></i>
+            </div>
+          </div>
+          
+          <div class="admin-stat-card">
+            <div class="admin-stat-info">
+              <span id="stat-total-xp" class="admin-stat-value">-</span>
+              <span class="admin-stat-label">Total Cumulative XP</span>
+            </div>
+            <div class="admin-stat-icon">
+              <i class="fa-solid fa-star"></i>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="admin-stat-info">
+              <span id="stat-avg-level" class="admin-stat-value">-</span>
+              <span class="admin-stat-label">Average User Level</span>
+            </div>
+            <div class="admin-stat-icon">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overall Dashboard Charts Grid -->
+        <div class="admin-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 32px;">
+          <div class="admin-chart-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); height: 280px;">
+            <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 15px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-user-plus"></i> New User Registrations (Last 7 Days)
+            </h4>
+            <div style="height: calc(100% - 30px);"><canvas id="overall-signups-chart"></canvas></div>
+          </div>
+          <div class="admin-chart-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); height: 280px;">
+            <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 15px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-clock"></i> Total Watch Time Spent (Minutes)
+            </h4>
+            <div style="height: calc(100% - 30px);"><canvas id="overall-watchtime-chart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- System Broadcasting & Engagement Insights Grid -->
+        <div class="admin-broadcast-insights-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 32px;">
+          <!-- Broadcast Card -->
+          <div class="admin-chart-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-bullhorn" style="color: var(--accent);"></i> System Announcement Broadcaster
+              </h3>
+              <div style="margin-bottom: 16px;">
+                <label for="input-announcement-text" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Message Text</label>
+                <input type="text" id="input-announcement-text" class="admin-search-input" style="padding-left: 14px; width: 100%; box-sizing: border-box;" placeholder="e.g. XP Event: Double XP this weekend!" />
+              </div>
+              <div style="margin-bottom: 20px;">
+                <label for="select-announcement-type" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Notification Style</label>
+                <select id="select-announcement-type" class="admin-select" style="width: 100%; height: 38px;">
+                  <option value="info">🔵 Informational Notice</option>
+                  <option value="warning">🟡 Warning Alert</option>
+                  <option value="success">🟢 Event Reward Success</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex; gap: 10px;">
+                <button id="btn-broadcast-announcement" class="btn-primary-admin" style="flex: 1; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  <i class="fa-solid fa-paper-plane"></i> Broadcast Notice
+                </button>
+                <button id="btn-clear-announcement" class="btn-secondary-admin" style="padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  <i class="fa-solid fa-trash-can"></i> Clear
+                </button>
+              </div>
+              <div id="active-announcement-status" style="margin-top: 14px; font-size: 11px; color: var(--text-secondary); display: none; align-items: center; gap: 8px; background: var(--bg-secondary); padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--border);">
+                <span class="status-dot status-today"></span>
+                <span id="active-announcement-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Active Notice: -</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Retention & Activity Card -->
+          <div class="admin-chart-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 300px;">
+            <div>
+              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-chart-pie" style="color: var(--accent);"></i> Student Retention & Activity
+              </h3>
+              <div style="position: relative; height: 130px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                <canvas id="activity-status-chart-canvas" style="max-height: 100%; max-width: 100%;"></canvas>
+              </div>
+              <!-- Custom HTML Legends -->
+              <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 12px;">
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--text-secondary);">
+                  <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+                  <span>Active (<span id="legend-count-today">-</span>)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--text-secondary);">
+                  <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b;"></span>
+                  <span>Recent (<span id="legend-count-recent">-</span>)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--text-secondary);">
+                  <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span>
+                  <span>Inactive (<span id="legend-count-inactive">-</span>)</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Updated in real-time</span>
+              <span id="retention-score-badge" style="font-weight: 700; color: var(--success); font-size: 10px; background: var(--success-soft); padding: 2px 6px; border-radius: 12px;">Retention: -</span>
+            </div>
+          </div>
+        </div>
+
+        </div> <!-- End of Overview Tab -->
+
+        <!-- TAB PANEL: STUDENTS (Hidden by default) -->
+        <div id="admin-panel-students" class="admin-tab-panel-content hidden">
+          <!-- Users Table Panel -->
+          <div class="admin-table-panel">
+          <div class="admin-table-header">
+            <div class="admin-search-wrapper">
+              <i class="fa-solid fa-magnifying-glass admin-search-icon"></i>
+              <input type="text" id="admin-search-users" class="admin-search-input" placeholder="Search by name or email..." />
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <button id="btn-export-csv" class="btn-secondary-admin" style="padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+              </button>
+              <div class="admin-sort-wrapper">
+                <span>Sort By:</span>
+                <select id="admin-sort-users" class="admin-select">
+                  <option value="name">Name (A-Z)</option>
+                  <option value="xp">Total XP (High to Low)</option>
+                  <option value="level">Level (High to Low)</option>
+                  <option value="watchtime">Watch Time (High to Low)</option>
+                  <option value="streak">Current Streak (High to Low)</option>
+                  <option value="lastLogin">Last Login (Newest first)</option>
+                  <option value="createdAt">Date Joined (Newest first)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User Details</th>
+                  <th>Level</th>
+                  <th>Total XP</th>
+                  <th>Current Streak</th>
+                  <th class="hide-mobile">Watch Time</th>
+                  <th class="hide-mobile">Date Joined</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-tbody">
+                <!-- User rows injected by JS -->
+                <tr>
+                  <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto 10px;"></div>
+                    Loading users list...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div> <!-- End of Students Tab -->
+      </section>
+    </main>
+  </div>
+
+  <!-- ======= USER DETAILS DRAWER (Slide-out Panel) ======= -->
+  <div id="admin-drawer-overlay" class="admin-drawer-overlay">
+    <div class="admin-drawer">
+      <div class="admin-drawer-header">
+        <div class="admin-drawer-title">
+          <i class="fa-solid fa-user-gear"></i> User Activity Overview
+        </div>
+        <button id="btn-close-drawer" class="btn-drawer-close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Tab selectors -->
+      <div class="drawer-tabs" style="display: flex; border-bottom: 1px solid var(--border); background: var(--bg-secondary);">
+        <button class="drawer-tab active" data-tab="overview" style="flex: 1; padding: 14px; font-weight: 600; font-size: 13px; color: var(--text-secondary); border-bottom: 2px solid transparent; text-align: center; cursor: pointer;">
+          <i class="fa-solid fa-chart-line"></i> Overview & Logs
+        </button>
+        <button class="drawer-tab" data-tab="playlists" style="flex: 1; padding: 14px; font-weight: 600; font-size: 13px; color: var(--text-secondary); border-bottom: 2px solid transparent; text-align: center; cursor: pointer;">
+          <i class="fa-solid fa-list-check"></i> Playlists
+        </button>
+        <button class="drawer-tab" data-tab="badges" style="flex: 1; padding: 14px; font-weight: 600; font-size: 13px; color: var(--text-secondary); border-bottom: 2px solid transparent; text-align: center; cursor: pointer;">
+          <i class="fa-solid fa-award"></i> Badges
+        </button>
+      </div>
+
+      <div class="admin-drawer-body">
+        <!-- Tab Content: OVERVIEW -->
+        <div id="drawer-tab-content-overview" class="drawer-tab-content">
+          <!-- User Profile Card -->
+          <div class="admin-user-profile-header" style="display: flex; flex-direction: column; align-items: stretch; gap: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <img id="detail-user-avatar" src="" alt="User avatar" />
+              <div class="admin-user-profile-meta">
+                <h3 id="detail-user-name">-</h3>
+                <p id="detail-user-email">-</p>
+                <span id="detail-user-joined" style="display: block; font-size: 11px; color: var(--text-secondary);">Joined: -</span>
+                <span id="detail-user-last-login" style="display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Last Login: -</span>
+                <span id="detail-user-watchtime" style="display: block; margin-top: 6px; font-weight: 600; color: var(--success);"><i class="fa-solid fa-clock"></i> Total Watch Time: 0 hrs</span>
+              </div>
+            </div>
+            <!-- Quick Actions Panel -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 16px;">
+              <button class="btn-table-action" id="btn-action-nudge-user" style="font-size: 11px; padding: 6px 12px; background: var(--accent-soft); color: var(--accent);">
+                <i class="fa-solid fa-bell"></i> Send Nudge
+              </button>
+              <button class="btn-table-action" id="btn-action-edit-xp" style="font-size: 11px; padding: 6px 12px;">
+                <i class="fa-solid fa-star"></i> Adjust XP
+              </button>
+              <button class="btn-table-action" id="btn-action-reset-recovery" style="font-size: 11px; padding: 6px 12px;">
+                <i class="fa-solid fa-shield-heart"></i> Reset Cooldown
+              </button>
+              <button class="btn-table-action danger" id="btn-action-delete-user" style="font-size: 11px; padding: 6px 12px; background: var(--error-soft); color: var(--error);">
+                <i class="fa-solid fa-trash"></i> Delete User
+              </button>
+            </div>
+          </div>
+
+          <!-- Study History Log Section -->
+          <div>
+            <h4 class="admin-drawer-section-title">
+              <i class="fa-solid fa-calendar-days"></i> Study Log History
+            </h4>
+            <div id="drawer-chart-container" style="margin-bottom: 20px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; height: 200px;">
+              <canvas id="drawer-user-chart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+            <div class="admin-table-container" style="border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;">
+              <table class="drawer-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Minutes Studied</th>
+                    <th>Videos Completed</th>
+                  </tr>
+                </thead>
+                <tbody id="detail-user-logs">
+                  <!-- Daily logs injected dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Content: PLAYLISTS -->
+        <div id="drawer-tab-content-playlists" class="drawer-tab-content" style="display: none;">
+          <h4 class="admin-drawer-section-title">
+            <i class="fa-solid fa-list-check"></i> Playlists Progress
+          </h4>
+          <div class="admin-table-container" style="border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
+            <table class="drawer-table">
+              <thead>
+                <tr>
+                  <th>Playlist Title</th>
+                  <th>Tag</th>
+                  <th>Videos</th>
+                  <th>Progress</th>
+                  <th>Link</th>
+                </tr>
+              </thead>
+              <tbody id="detail-user-playlists">
+                <!-- Playlists injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab Content: BADGES -->
+        <div id="drawer-tab-content-badges" class="drawer-tab-content" style="display: none;">
+          <h4 class="admin-drawer-section-title">
+            <i class="fa-solid fa-award"></i> Unlocked Achievements
+          </h4>
+          <div id="detail-user-badges" class="admin-badges-grid">
+            <!-- Badges injected dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= ADMIN ACTIONS MODAL ======= -->
+  <div id="admin-action-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
+    <div class="modal-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; width: 90%; max-width: 420px; box-shadow: var(--shadow-lg); transform: translateY(-20px); transition: transform 0.2s ease;">
+      <h3 id="action-modal-title" style="font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-pen-to-square"></i> Admin Control
+      </h3>
+      <p id="action-modal-desc" style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; line-height: 1.5;"></p>
+      
+      <div id="xp-input-group" style="margin-bottom: 24px; display: none;">
+        <label for="input-adjust-xp" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">New Total XP Amount</label>
+        <input type="number" id="input-adjust-xp" class="admin-search-input" style="padding-left: 14px;" />
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="btn-cancel-action" class="btn-secondary-admin" style="padding: 8px 16px;">Cancel</button>
+        <button id="btn-save-action" class="btn-primary-admin" style="padding: 8px 20px;">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase & Admin Dashboard Logic -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

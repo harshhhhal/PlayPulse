@@ -3151,3 +3151,17 @@ html.theme-transition *::after {
     display: none;
   }
 }
+
+/* --- Mobile Notifications Dropdown Positioning --- */
+@media (max-width: 576px) {
+  #notifications-dropdown {
+    position: fixed !important;
+    top: 60px !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+    z-index: 1001 !important;
+  }
+}

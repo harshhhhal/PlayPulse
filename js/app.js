@@ -143,6 +143,16 @@ const AppRouter = (() => {
       const joined = data?.createdAt?.toDate?.() || new Date();
       document.getElementById('profile-joined-date').textContent = joined.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+      // Admin portal button visibility
+      const adminPortalBtn = document.getElementById('btn-admin-portal');
+      if (adminPortalBtn) {
+        if (user.email === 'neonone739@gmail.com') {
+          adminPortalBtn.classList.remove('hidden');
+        } else {
+          adminPortalBtn.classList.add('hidden');
+        }
+      }
+
       // XP & Level
       const xp = data?.totalXP || 0;
       const levelInfo = getLevelFromXP(xp);
@@ -658,9 +668,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const data = await FirestoreOps.getUserData();
 
+    // ---------- Real-Time Notifications Initializer ----------
+    initNotifications(user);
+
     // ---------- Topbar ----------
     document.getElementById('topbar-avatar').src = user.photoURL || '';
     document.getElementById('topbar-name').textContent = user.displayName?.split(' ')[0] || 'User';
+
+    // ---------- Admin Dropdown Item ----------
+    const adminBtn = document.getElementById('btn-dropdown-admin');
+    if (adminBtn && user.email === 'neonone739@gmail.com') {
+      adminBtn.style.display = 'flex';
+      adminBtn.addEventListener('click', () => {
+        window.location.href = 'admin.html';
+      });
+    }
 
     // ---------- Sidebar XP ----------
     const xp = data?.totalXP || 0;
@@ -731,3 +753,333 @@ document.addEventListener('DOMContentLoaded', () => {
     if (app) app.classList.remove('hidden');
   });
 });
+
+let activeNotifications = [];
+let pendingNudgeText = null;
+let activeAnnouncement = null;
+let autoNotificationsList = [];
+
+function initNotifications(user) {
+  // 1. Listen to Global Announcements
+  db.collection('announcements').doc('global').onSnapshot((doc) => {
+    if (doc.exists) {
+      activeAnnouncement = doc.data();
+    } else {
+      activeAnnouncement = null;
+    }
+    renderNotifications();
+  }, (err) => {
+    console.warn('Failed to listen to global announcements:', err);
+  });
+
+  // 2. Listen to user nudges
+  db.collection('users').doc(user.uid).onSnapshot((doc) => {
+    if (doc.exists) {
+      const uData = doc.data();
+      pendingNudgeText = uData.pendingNudge || null;
+    } else {
+      pendingNudgeText = null;
+    }
+    renderNotifications();
+  }, (err) => {
+    console.warn('Failed to listen to user nudges:', err);
+  });
+
+  // 3. Listen to automated progress notifications
+  db.collection('users').doc(user.uid).collection('notifications')
+    .orderBy('timestamp', 'desc')
+    .limit(8)
+    .onSnapshot((snap) => {
+      autoNotificationsList = snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      renderNotifications();
+    }, (err) => {
+      console.warn('Failed to listen to auto notifications:', err);
+    });
+
+  // 4. Start progress watcher
+  watchStudentProgress(user);
+
+  // 5. Bind dropdown toggle
+  initNotificationsToggle();
+}
+
+let lastProgressState = null;
+
+function watchStudentProgress(user) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // A. Monitor user progress (Level, Streak, XP milestones)
+  db.collection('users').doc(user.uid).onSnapshot((doc) => {
+    if (!doc.exists) return;
+    const current = doc.data();
+
+    if (!lastProgressState) {
+      lastProgressState = {
+        level: current.level || 1,
+        currentStreak: current.currentStreak || 0,
+        totalXP: current.totalXP || 0
+      };
+      return;
+    }
+
+    // Level up check
+    if (current.level > lastProgressState.level) {
+      addAutoNotification(
+        user,
+        `🎉 Level Up! You reached Level ${current.level}! Check your dashboard to view your new rank.`,
+        'success',
+        'fa-solid fa-trophy'
+      );
+    }
+
+    // Streak combo milestone check
+    if (current.currentStreak > lastProgressState.currentStreak && current.currentStreak >= 2) {
+      addAutoNotification(
+        user,
+        `🔥 Streak extended! You studied ${current.currentStreak} days in a row! Keep up the combo multiplier.`,
+        'success',
+        'fa-solid fa-fire'
+      );
+    }
+
+    // XP milestone checks
+    const milestones = [100, 250, 500, 1000, 2500, 5000];
+    milestones.forEach(m => {
+      if (current.totalXP >= m && lastProgressState.totalXP < m) {
+        addAutoNotification(
+          user,
+          `⭐ XP milestone reached! You earned a total of ${m.toLocaleString()} XP!`,
+          'info',
+          'fa-solid fa-star'
+        );
+      }
+    });
+
+    lastProgressState = {
+      level: current.level || 1,
+      currentStreak: current.currentStreak || 0,
+      totalXP: current.totalXP || 0
+    };
+  });
+
+  // B. Monitor daily study goal progress (with LocalStorage state to prevent reload spam)
+  db.collection('users').doc(user.uid).collection('dailyLogs').doc(todayStr).onSnapshot((doc) => {
+    if (!doc.exists) return;
+    const log = doc.data();
+    const goal = parseInt(localStorage.getItem('playpulse_daily_goal')) || 60;
+    const studied = Math.round(log.minutesStudied || 0);
+
+    const savedNotifiedDate = localStorage.getItem('playpulse_goal_notified_date');
+    if (studied >= goal && savedNotifiedDate !== todayStr) {
+      localStorage.setItem('playpulse_goal_notified_date', todayStr);
+      addAutoNotification(
+        user,
+        `🎯 Goal Reached! You successfully completed your study target of ${goal} minutes today!`,
+        'success',
+        'fa-solid fa-circle-check'
+      );
+    }
+  });
+
+  // C. Monitor badges (unlocked achievements)
+  db.collection('users').doc(user.uid).collection('achievements').onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return;
+    snap.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const achievement = change.doc.data();
+        const earnedTime = achievement.earnedAt?.toDate ? achievement.earnedAt.toDate().getTime() : new Date(achievement.earnedAt).getTime();
+        // Notify only if unlocked in the last 60 seconds
+        if (Math.abs(Date.now() - earnedTime) < 60000) {
+          addAutoNotification(
+            user,
+            `🏆 Badge unlocked! You earned the "${change.doc.id}" badge. View it in your Achievements tab!`,
+            'success',
+            'fa-solid fa-award'
+          );
+        }
+      }
+    });
+  });
+}
+
+async function addAutoNotification(user, text, style = 'info', icon = 'fa-solid fa-bell') {
+  try {
+    await db.collection('users').doc(user.uid).collection('notifications').add({
+      text: text,
+      style: style,
+      icon: icon,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp() || new Date()
+    });
+  } catch (err) {
+    console.warn('Failed to add auto notification:', err);
+  }
+}
+
+function renderNotifications() {
+  const badge = document.getElementById('notification-badge');
+  const countEl = document.getElementById('notification-count');
+  const listEl = document.getElementById('notifications-list');
+  if (!listEl) return;
+
+  listEl.innerHTML = '';
+  activeNotifications = [];
+
+  // 1. Add global announcement if present and not locally dismissed
+  if (activeAnnouncement) {
+    let dismissed = [];
+    try {
+      dismissed = JSON.parse(localStorage.getItem('playpulse_dismissed_announcements')) || [];
+    } catch (e) {
+      dismissed = [];
+    }
+
+    if (!dismissed.includes(activeAnnouncement.message)) {
+      activeNotifications.push({
+        id: 'announcement',
+        text: activeAnnouncement.message,
+        style: activeAnnouncement.type,
+        icon: activeAnnouncement.type === 'warning' ? 'fa-solid fa-triangle-exclamation' : (activeAnnouncement.type === 'success' ? 'fa-solid fa-trophy' : 'fa-solid fa-bullhorn'),
+        isClearable: true,
+        clearAction: `dismissGlobalAnnouncement(event, \`${activeAnnouncement.message.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)`
+      });
+    }
+  }
+
+  // 2. Add pending nudge if present
+  if (pendingNudgeText) {
+    activeNotifications.push({
+      id: 'nudge',
+      text: pendingNudgeText,
+      style: 'info',
+      icon: 'fa-solid fa-bell',
+      isClearable: true,
+      clearAction: 'dismissNudgeNotification(event)'
+    });
+  }
+
+  // 3. Add automated notifications
+  autoNotificationsList.forEach(notif => {
+    activeNotifications.push({
+      id: notif.id,
+      text: notif.text,
+      style: notif.style || 'info',
+      icon: notif.icon || 'fa-solid fa-bell',
+      isClearable: true,
+      clearAction: `deleteNotification('${notif.id}', event)`
+    });
+  });
+
+  if (activeNotifications.length === 0) {
+    listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 12px 0;">No new notifications</div>';
+    if (badge) badge.classList.add('hidden');
+    if (countEl) countEl.textContent = '0 new';
+    return;
+  }
+
+  // Update badge and count
+  if (badge) badge.classList.remove('hidden');
+  if (countEl) countEl.textContent = `${activeNotifications.length} new`;
+
+  // Draw notifications
+  activeNotifications.forEach(notif => {
+    const item = document.createElement('div');
+    item.style.padding = '10px 12px';
+    item.style.borderRadius = 'var(--radius)';
+    item.style.fontSize = '12px';
+    item.style.display = 'flex';
+    item.style.gap = '10px';
+    item.style.alignItems = 'flex-start';
+    item.style.border = '1px solid var(--border)';
+    
+    let bg = 'var(--bg-secondary)';
+    let color = 'var(--text-primary)';
+    
+    if (notif.style === 'warning') {
+      bg = 'var(--warning-soft)';
+    } else if (notif.style === 'success') {
+      bg = 'var(--success-soft)';
+    } else if (notif.style === 'info') {
+      bg = 'var(--accent-soft)';
+    }
+
+    item.style.background = bg;
+    item.style.color = color;
+
+    item.innerHTML = `
+      <i class="${notif.icon}" style="margin-top: 2px; color: var(--accent);"></i>
+      <div style="flex-grow: 1; font-weight: 500;">${notif.text}</div>
+      ${notif.isClearable ? `
+        <button onclick="${notif.clearAction}" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; display: flex; align-items: center; justify-content: center; margin-top: 2px;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      ` : ''}
+    `;
+    listEl.appendChild(item);
+  });
+}
+
+function dismissGlobalAnnouncement(event, text) {
+  if (event) event.stopPropagation();
+  let dismissed = [];
+  try {
+    dismissed = JSON.parse(localStorage.getItem('playpulse_dismissed_announcements')) || [];
+  } catch (e) {
+    dismissed = [];
+  }
+  if (!dismissed.includes(text)) {
+    dismissed.push(text);
+    localStorage.setItem('playpulse_dismissed_announcements', JSON.stringify(dismissed));
+  }
+  renderNotifications();
+}
+window.dismissGlobalAnnouncement = dismissGlobalAnnouncement;
+
+async function dismissNudgeNotification(event) {
+  if (event) event.stopPropagation();
+  pendingNudgeText = null;
+  renderNotifications();
+  try {
+    const uid = Auth.getUID();
+    if (uid) {
+      await db.collection('users').doc(uid).update({
+        pendingNudge: null
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to clear pending nudge:', err);
+  }
+}
+window.dismissNudgeNotification = dismissNudgeNotification;
+
+async function deleteNotification(docId, event) {
+  if (event) event.stopPropagation();
+  try {
+    const uid = Auth.getUID();
+    if (uid) {
+      await db.collection('users').doc(uid).collection('notifications').doc(docId).delete();
+    }
+  } catch (err) {
+    console.warn('Failed to delete notification:', err);
+  }
+}
+window.deleteNotification = deleteNotification;
+
+function initNotificationsToggle() {
+  const btn = document.getElementById('btn-notifications-topbar');
+  const dropdown = document.getElementById('notifications-dropdown');
+  if (!btn || !dropdown) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      dropdown.classList.add('hidden');
+    }
+  });
+}

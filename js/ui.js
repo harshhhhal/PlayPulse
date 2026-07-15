@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    UI Module â€” Shared UI utilities
    Theme toggle, sidebar, scroll anims, FAQ
    ============================================ */
@@ -402,3 +402,190 @@ const ProfileEditor = (() => {
 
   return { open, close, save };
 })();
+
+// Dynamic Interactive Tip Support Modal Builder
+function showTipModal() {
+  let modal = document.getElementById('playpulse-tip-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'playpulse-tip-modal';
+    modal.className = 'modal hidden';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.background = 'rgba(0,0,0,0.6)';
+    modal.style.backdropFilter = 'blur(4px)';
+    modal.style.zIndex = '2000';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.transition = 'opacity 0.2s ease';
+
+    modal.innerHTML = `
+      <style>
+        @keyframes heartbeat {
+          0% { transform: scale(1); }
+          14% { transform: scale(1.12); }
+          28% { transform: scale(1); }
+          42% { transform: scale(1.12); }
+          70% { transform: scale(1); }
+        }
+        .heart-beat-icon {
+          animation: heartbeat 1.4s infinite ease-in-out;
+          display: inline-block;
+        }
+        .btn-predefined-tip {
+          border: 1px solid var(--border) !important;
+          background: var(--bg-secondary) !important;
+          color: var(--text-primary) !important;
+          border-radius: 20px !important;
+          padding: 8px 18px !important;
+          font-size: 13px !important;
+          font-weight: 700 !important;
+          cursor: pointer !important;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          outline: none !important;
+        }
+        .btn-predefined-tip:hover {
+          transform: translateY(-1px);
+          border-color: var(--accent) !important;
+          color: var(--accent) !important;
+        }
+        .btn-predefined-tip.active {
+          background: var(--accent) !important;
+          color: var(--text-inverse) !important;
+          border-color: var(--accent) !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2) !important;
+        }
+        .tip-pay-button {
+          background: linear-gradient(135deg, var(--accent) 0%, #1d4ed8 100%) !important;
+          color: var(--text-inverse) !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+          border-radius: var(--radius) !important;
+          font-weight: 700 !important;
+          padding: 12px 24px !important;
+          font-size: 14px !important;
+          border: none !important;
+          cursor: pointer !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 8px !important;
+          text-decoration: none !important;
+          transition: all 0.2s ease !important;
+        }
+        .tip-pay-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35) !important;
+        }
+        .tip-input-amount {
+          width: 100% !important;
+          padding: 12px 16px !important;
+          background: var(--bg-secondary) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: var(--radius) !important;
+          color: var(--text-primary) !important;
+          font-size: 16px !important;
+          font-weight: 700 !important;
+          text-align: center !important;
+          font-family: inherit !important;
+          transition: all 0.2s ease !important;
+          outline: none !important;
+        }
+        .tip-input-amount:focus {
+          border-color: var(--accent) !important;
+          box-shadow: 0 0 0 2px var(--accent-soft) !important;
+        }
+      </style>
+
+      <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; width: 90%; max-width: 380px; box-shadow: var(--shadow-lg); position: relative; text-align: center; color: var(--text-primary); animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+        <button id="btn-close-tip-modal" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 4px; display: flex; align-items: center; justify-content: center;" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <i class="fa-solid fa-heart heart-beat-icon" style="color: var(--error);"></i> Support PlayPulse
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px; padding: 0 8px;">
+          Select or enter a custom amount to generate your secure payment details:
+        </p>
+
+        <!-- Predefined amounts -->
+        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
+          <button class="btn-predefined-tip" data-amount="10">₹10</button>
+          <button class="btn-predefined-tip active" data-amount="50">₹50</button>
+          <button class="btn-predefined-tip" data-amount="100">₹100</button>
+        </div>
+
+        <!-- Custom amount input -->
+        <div style="margin-bottom: 24px; text-align: left;">
+          <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Custom Amount (₹)</label>
+          <input type="number" id="input-tip-amount" value="50" min="1" placeholder="Enter amount..." class="tip-input-amount" />
+        </div>
+
+        <!-- QR Code Display -->
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 24px;">
+          <img id="img-tip-qr" src="" alt="UPI QR Code" style="border: 4px solid #ffffff; border-radius: var(--radius); width: 140px; height: 140px; box-shadow: var(--shadow-sm); display: block;" />
+          <span style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Scan with GPay, PhonePe, or BHIM</span>
+        </div>
+
+        <!-- Action pay button -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <a id="btn-tip-pay-link" href="" class="tip-pay-button">
+            <i class="fa-solid fa-mobile-screen"></i> Pay via UPI App
+          </a>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Event listeners
+    const closeBtn = modal.querySelector('#btn-close-tip-modal');
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+
+    const amountInput = modal.querySelector('#input-tip-amount');
+    const predefinedBtns = modal.querySelectorAll('.btn-predefined-tip');
+    const qrImg = modal.querySelector('#img-tip-qr');
+    const payLink = modal.querySelector('#btn-tip-pay-link');
+
+    function updatePaymentDetails(amount) {
+      const upiUrl = `upi://pay?pa=harshal6805-4@okaxis&pn=PlayPulse&am=${amount}&cu=INR`;
+      payLink.href = upiUrl;
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(upiUrl)}`;
+    }
+
+    // Input changes
+    amountInput.addEventListener('input', () => {
+      const val = parseInt(amountInput.value) || 0;
+      predefinedBtns.forEach(btn => btn.classList.remove('active'));
+      updatePaymentDetails(val);
+    });
+
+    // Predefined buttons click
+    predefinedBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const amt = btn.dataset.amount;
+        amountInput.value = amt;
+
+        predefinedBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        updatePaymentDetails(amt);
+      });
+    });
+
+    // Default init
+    updatePaymentDetails(50);
+  }
+
+  // Open modal
+  modal.classList.remove('hidden');
+}
+window.showTipModal = showTipModal;

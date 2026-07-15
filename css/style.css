@@ -623,3 +623,59 @@ a.btn-primary { text-decoration: none; color: #fff; cursor: pointer; }
   height: 24px;
   object-fit: contain;
 }
+
+/* Premium Announcement Banner */
+.system-announcement-banner {
+  margin: 16px 24px 0;
+  padding: 14px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  animation: slideDownBanner 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.3s ease;
+}
+@keyframes slideDownBanner {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.system-announcement-banner.banner-info {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+.system-announcement-banner.banner-warning {
+  background: var(--warning-soft);
+  color: var(--text-primary);
+  border-color: rgba(245, 158, 11, 0.25);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.08);
+}
+.system-announcement-banner.banner-success {
+  background: var(--success-soft);
+  color: var(--text-primary);
+  border-color: rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+}
+.banner-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.banner-close-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+}

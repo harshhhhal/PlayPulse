@@ -40,13 +40,27 @@ const Auth = (() => {
           currentStreak: 0,
           longestStreak: 0,
           lastStreakDate: null,
+          lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        // Write welcome notification to notifications subcollection
+        await userRef.collection('notifications').add({
+          text: `👋 Welcome to PlayPulse, ${user.displayName || 'Learner'}! Start studying by adding playlists, tracking your progress, and leveling up!`,
+          style: 'info',
+          icon: 'fa-solid fa-door-open',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(err => console.warn('Failed to add welcome notification:', err));
 
         // Send welcome email
         if (typeof EmailService !== 'undefined') {
           EmailService.sendWelcomeEmail(user);
         }
+      } else {
+        // Update last login timestamp for returning users
+        await userRef.update({
+          lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(err => console.warn('Failed to update lastLoginAt:', err));
       }
 
       // Hide loading is now handled in app.js boot sequence

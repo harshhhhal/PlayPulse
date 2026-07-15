@@ -125,6 +125,25 @@
             <i class="fa-solid fa-hourglass-half"></i>
             <span class="pomo-indicator" id="pomo-indicator"></span>
           </button>
+          
+          <!-- Notifications Bell & Dropdown -->
+          <div style="position: relative; display: inline-block; line-height: 0;">
+            <button id="btn-notifications-topbar" class="btn-theme-topbar" title="Notifications" aria-label="Notifications" style="position: relative;">
+              <i class="fa-solid fa-bell"></i>
+              <span id="notification-badge" class="hidden" style="position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--error);"></span>
+            </button>
+            
+            <div id="notifications-dropdown" class="hidden" style="position: absolute; top: 46px; right: 0; width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 1000; padding: 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; line-height: 1.4;">
+              <h4 style="margin: 0; font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between; color: var(--text-primary);">
+                <span>Notifications</span>
+                <span id="notification-count" style="font-size: 10px; background: var(--accent-soft); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: 600;">0 new</span>
+              </h4>
+              <div id="notifications-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+                <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 12px 0;">No new notifications</div>
+              </div>
+            </div>
+          </div>
+          
           <button id="btn-theme-topbar" class="btn-theme-topbar" title="Toggle theme" aria-label="Switch to light mode"
             aria-pressed="false">
             <i class="fa-solid fa-moon"></i>
@@ -137,6 +156,9 @@
             <div class="user-dropdown">
               <button class="user-dropdown-item" id="btn-dropdown-profile">
                 <i class="fa-solid fa-user"></i> Profile
+              </button>
+              <button class="user-dropdown-item" id="btn-dropdown-admin" style="display: none;">
+                <i class="fa-solid fa-user-shield"></i> Admin Panel
               </button>
               <div class="user-dropdown-divider"></div>
               <button id="btn-logout" class="user-dropdown-item danger">
@@ -421,10 +443,13 @@
                   <i class="fa-solid fa-calendar-days"></i>
                   <span>Joined <span id="profile-joined-date">March 2024</span></span>
                 </div>
-                <div class="profile-header-actions">
+                <div class="profile-header-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
                   <button id="btn-edit-profile" class="btn btn-primary" onclick="showSection('settings')">
                     <i class="fa-solid fa-pen"></i> Edit Profile
                   </button>
+                  <a id="btn-admin-portal" href="admin.html" class="btn hidden" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: #eab308; color: #000000; font-weight: 700; border: none; border-radius: var(--radius); padding: 8px 16px; font-size: 14px; cursor: pointer;">
+                    <i class="fa-solid fa-shield-halved"></i> Admin Portal
+                  </a>
                   <button id="btn-profile-logout" class="btn btn-ghost">
                     <i class="fa-solid fa-right-from-bracket"></i> Logout
                   </button>
@@ -508,6 +533,19 @@
           <div class="profile-section">
             <h3 class="section-title"><i class="fa-solid fa-diagram-project"></i> Skill Tree</h3>
             <div id="skill-tree-grid" class="skill-tree-grid"></div>
+          </div>
+
+          <!-- Support Creator Card -->
+          <div class="profile-section support-creator-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px;">
+            <h3 class="section-title" style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--text-primary); border: none; padding: 0;">
+              <i class="fa-solid fa-heart" style="color: var(--error);"></i> Support Developer (Tipping & Hosting)
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin: 0;">
+              If PlayPulse has helped you stay disciplined, consider supporting the project by leaving a small tip to cover hosting and server APIs.
+            </p>
+            <button onclick="showTipModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; padding: 8px 16px; font-size: 13px; font-weight: 700; background: var(--accent); color: var(--text-inverse); border-radius: var(--radius-sm); border: none; cursor: pointer; width: fit-content; margin-top: 4px;">
+              <i class="fa-solid fa-circle-dollar-to-slot"></i> Tip / Support Creator
+            </button>
           </div>
 
           <!-- Feedback & Bug Report -->
