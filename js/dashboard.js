@@ -220,8 +220,20 @@ const DashboardController = (() => {
   // ---------- Dashboard Playlists ----------
   function renderDashboardPlaylists(playlists) {
     const container = document.getElementById('dashboard-playlists');
+    if (!container.dataset.bound) {
+      container.dataset.bound = '1';
+      const act = (e) => {
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
+        if (e.type === 'keydown') { if ((e.key !== 'Enter' && e.key !== ' ') || e.target !== el) return; e.preventDefault(); }
+        if (el.dataset.action === 'open-add-modal') document.getElementById('add-playlist-modal').classList.remove('hidden');
+        else if (el.dataset.action === 'open-playlist') { AppRouter.switchTab('playlists'); PlaylistPage.openPlaylistDetail(el.dataset.id); }
+      };
+      container.addEventListener('click', act);
+      container.addEventListener('keydown', act);
+    }
     if (!playlists.length) {
-      container.innerHTML = DOMPurify.sanitize('<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>No playlists yet. Add your first one!</p><button class="btn-primary btn-sm" style="margin-top:12px" onclick="document.getElementById(\'add-playlist-modal\').classList.remove(\'hidden\')"><i class="fa-solid fa-plus"></i> Add Your First Playlist</button></div>', { ADD_ATTR: ['onclick'] });
+      container.innerHTML = DOMPurify.sanitize('<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>No playlists yet. Add your first one!</p><button class="btn-primary btn-sm" style="margin-top:12px" data-action="open-add-modal"><i class="fa-solid fa-plus"></i> Add Your First Playlist</button></div>');
       return;
     }
 
@@ -244,16 +256,16 @@ const DashboardController = (() => {
       const prioClass = (pl.priority || 'medium').toLowerCase();
 
       return `
-        <div class="playlist-card ${pct === 100 ? 'playlist-card--complete' : ''}" data-id="${pl.id}" onclick="AppRouter.switchTab('playlists'); PlaylistPage.openPlaylistDetail('${pl.id}');">
+        <div class="playlist-card ${pct === 100 ? 'playlist-card--complete' : ''}" data-id="${PPUtils.escapeHtml(pl.id)}" data-action="open-playlist" tabindex="0">
           ${pct === 100 ? '<div class="completion-ribbon"><i class="fa-solid fa-check"></i> Complete</div>' : ''}
           <div class="playlist-card-thumb">
-            ${pl.thumbnail ? `<img src="${pl.thumbnail}" alt="${pl.title}" loading="lazy" />` : ''}
+            ${PPUtils.safeHttpUrl(pl.thumbnail) ? `<img src="${PPUtils.escapeHtml(PPUtils.safeHttpUrl(pl.thumbnail))}" alt="" loading="lazy" />` : ''}
           </div>
           <div class="playlist-card-body">
-            <div class="playlist-card-title">${pl.title || 'Untitled'}</div>
+            <div class="playlist-card-title">${PPUtils.escapeHtml(pl.title || 'Untitled')}</div>
             <div class="playlist-card-meta">
-              <span class="tag-badge ${tagClass}">${pl.tag || 'Other'}</span>
-              <span class="priority-badge ${prioClass}">${pl.priority || 'Medium'}</span>
+              <span class="tag-badge ${tagClass}">${PPUtils.escapeHtml(pl.tag || 'Other')}</span>
+              <span class="priority-badge ${PPUtils.escapeHtml(prioClass)}">${PPUtils.escapeHtml(pl.priority || 'Medium')}</span>
             </div>
             <div class="playlist-card-stats">
               <span><i class="fa-solid fa-video"></i>${total} videos</span>
@@ -266,7 +278,7 @@ const DashboardController = (() => {
           </div>
         </div>
       `;
-    }).join(''), { ADD_ATTR: ['onclick'] });
+    }).join(''));
   }
 
   // ---------- FN-7: Watch History Timeline ----------

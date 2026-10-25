@@ -46,12 +46,38 @@ const PlaylistPage = (() => {
 
     // Add playlist modal
     document.getElementById('add-playlist-form').addEventListener('submit', handleAddPlaylist);
+    bindDelegatedActions();
     document.querySelectorAll('.close-add-playlist, #add-playlist-modal .modal-overlay').forEach(el => {
       el.addEventListener('click', closeAddModal);
     });
   }
 
   /* ---------- Open From Resume (called by DashboardController) ---------- */
+  /* Delegated handlers replace inline onclick= attributes (BUG-002). */
+  function handleAction(e) {
+    const el = e.target.closest('[data-action]');
+    if (!el || !e.currentTarget.contains(el)) return;
+    if (e.type === 'keydown') {
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.target !== el) return;
+      e.preventDefault();
+    }
+    const { action, id, title, page } = el.dataset;
+    if (action === 'open-playlist') openPlaylistDetail(id);
+    else if (action === 'edit-playlist') { e.stopPropagation(); editPlaylist(id); }
+    else if (action === 'delete-playlist') { e.stopPropagation(); deletePlaylistFn(id, title); }
+    else if (action === 'open-video') openVideo(id);
+    else if (action === 'go-page') goToPage(parseInt(page, 10));
+    else if (action === 'open-add-modal') openAddModal();
+  }
+  function bindDelegatedActions() {
+    ['playlists-container', 'videos-container', 'videos-pagination'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', handleAction);
+      el.addEventListener('keydown', handleAction);
+    });
+  }
+
   async function openFromResume(playlistId, videoDocId, isResume, isFocus) {
     await openPlaylistDetail(playlistId);
     if (videoDocId) {
@@ -84,7 +110,7 @@ const PlaylistPage = (() => {
     const container = document.getElementById('playlists-container');
 
     if (!filtered.length) {
-      container.innerHTML = DOMPurify.sanitize(`<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>No playlists match your filters.</p><button class="btn-primary btn-sm" style="margin-top:12px" onclick="document.getElementById('add-playlist-modal').classList.remove('hidden')"><i class="fa-solid fa-plus"></i> Add Your First Playlist</button></div>`, { ADD_ATTR: ['onclick'] });
+      container.innerHTML = DOMPurify.sanitize(`<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>No playlists match your filters.</p><button class="btn-primary btn-sm" style="margin-top:12px" data-action="open-add-modal"><i class="fa-solid fa-plus"></i> Add Your First Playlist</button></div>`);
       return;
     }
 
@@ -96,38 +122,38 @@ const PlaylistPage = (() => {
       const prioClass = (pl.priority || 'medium').toLowerCase();
 
       return `
-        <div class="playlist-card ${pctNum === 100 ? 'playlist-card--complete' : ''}" onclick="PlaylistPage.openPlaylistDetail('${pl.id}')">
+        <div class="playlist-card ${pctNum === 100 ? 'playlist-card--complete' : ''}" data-action="open-playlist" data-id="${PPUtils.escapeHtml(pl.id)}" tabindex="0">
           ${pctNum === 100 ? '<div class="completion-ribbon"><i class="fa-solid fa-check"></i> Complete</div>' : ''}
           <div class="playlist-card-thumb">
-            ${pl.thumbnail ? `<img src="${pl.thumbnail}" alt="" loading="lazy" />` : ''}
+            ${PPUtils.safeHttpUrl(pl.thumbnail) ? `<img src="${PPUtils.escapeHtml(PPUtils.safeHttpUrl(pl.thumbnail))}" alt="" loading="lazy" />` : ''}
           </div>
           <div class="playlist-card-body">
-            <div class="playlist-card-title">${pl.title || 'Untitled'}</div>
+            <div class="playlist-card-title">${PPUtils.escapeHtml(pl.title || 'Untitled')}</div>
             <div class="playlist-card-meta">
-              <span class="tag-badge ${tagClass}">${pl.tag || 'Other'}</span>
-              <span class="priority-badge ${prioClass}">${pl.priority || 'Medium'}</span>
+              <span class="tag-badge ${tagClass}">${PPUtils.escapeHtml(pl.tag || 'Other')}</span>
+              <span class="priority-badge ${PPUtils.escapeHtml(prioClass)}">${PPUtils.escapeHtml(pl.priority || 'Medium')}</span>
             </div>
             <div class="playlist-card-stats">
               <span><i class="fa-solid fa-video"></i>${total} videos</span>
               <span><i class="fa-solid fa-circle-check"></i>${done} done</span>
-              ${pl.estimatedRemainingTime ? `<span><i class="fa-solid fa-clock"></i>${pl.estimatedRemainingTime}</span>` : ''}
+              ${pl.estimatedRemainingTime ? `<span><i class="fa-solid fa-clock"></i>${PPUtils.escapeHtml(pl.estimatedRemainingTime)}</span>` : ''}
             </div>
             <div class="playlist-card-progress">
               <div class="playlist-card-progress-label"><span>${pctNum}%</span><span>${done}/${total}</span></div>
               <div class="progress-bar-container"><div class="progress-bar" style="width:${pctNum}%"></div></div>
             </div>
             <div class="playlist-card-actions">
-              <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); PlaylistPage.editPlaylist('${pl.id}')">
+              <button type="button" class="btn-ghost btn-sm" data-action="edit-playlist" data-id="${PPUtils.escapeHtml(pl.id)}">
                 <i class="fa-solid fa-pen"></i> Edit
               </button>
-              <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); PlaylistPage.deletePlaylist('${pl.id}', '${(pl.title || '').replace(/'/g, "\\'")}')">
+              <button type="button" class="btn-ghost btn-sm" data-action="delete-playlist" data-id="${PPUtils.escapeHtml(pl.id)}" data-title="${PPUtils.escapeHtml(pl.title || '')}">
                 <i class="fa-solid fa-trash"></i> Delete
               </button>
             </div>
           </div>
         </div>
       `;
-    }).join(''), { ADD_ATTR: ['onclick'] });
+    }).join(''));
   }
 
   /* ---------- Detail View ---------- */
@@ -234,17 +260,17 @@ const PlaylistPage = (() => {
     container.innerHTML = DOMPurify.sanitize(pageVideos.map((v, idx) => {
       const num = start + idx + 1;
       return `
-        <div class="video-item ${v.completed ? 'completed' : ''}" data-id="${v.id}" onclick="PlaylistPage.openVideo('${v.id}')">
+        <div class="video-item ${v.completed ? 'completed' : ''}" data-id="${PPUtils.escapeHtml(v.id)}" data-action="open-video" tabindex="0">
           <div class="video-number">${v.completed ? '<i class="fa-solid fa-check"></i>' : num}</div>
-          ${v.thumbnail ? `<img class="video-thumb" src="${v.thumbnail}" alt="" loading="lazy" />` : ''}
+          ${PPUtils.safeHttpUrl(v.thumbnail) ? `<img class="video-thumb" src="${PPUtils.escapeHtml(PPUtils.safeHttpUrl(v.thumbnail))}" alt="" loading="lazy" />` : ''}
           <div class="video-info">
-            <div class="video-title">${v.title || 'Untitled'}</div>
-            <div class="video-duration">${v.durationStr || YouTubeAPI.formatDuration(v.duration)}</div>
+            <div class="video-title">${PPUtils.escapeHtml(v.title || 'Untitled')}</div>
+            <div class="video-duration">${PPUtils.escapeHtml(v.durationStr || YouTubeAPI.formatDuration(v.duration))}</div>
           </div>
           <div class="video-check">${v.completed ? '<i class="fa-solid fa-check"></i>' : ''}</div>
         </div>
       `;
-    }).join(''), { ADD_ATTR: ['onclick'] });
+    }).join(''));
 
     renderPagination();
   }
@@ -262,7 +288,7 @@ const PlaylistPage = (() => {
     let html = '';
 
     if (currentPage > 1) {
-      html += `<button onclick="PlaylistPage.goToPage(${currentPage - 1})"><i class="fa-solid fa-chevron-left"></i></button>`;
+      html += `<button type="button" data-action="go-page" data-page="${currentPage - 1}" aria-label="Previous page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>`;
     }
 
     for (let i = 1; i <= totalPages; i++) {
@@ -270,14 +296,14 @@ const PlaylistPage = (() => {
         if (i === currentPage - 3 || i === currentPage + 3) html += '<span style="padding:6px;color:var(--text-muted)">...</span>';
         continue;
       }
-      html += `<button class="${i === currentPage ? 'active' : ''}" onclick="PlaylistPage.goToPage(${i})">${i}</button>`;
+      html += `<button type="button" class="${i === currentPage ? 'active' : ''}" data-action="go-page" data-page="${i}" ${i === currentPage ? 'aria-current="page"' : ''}>${i}</button>`;
     }
 
     if (currentPage < totalPages) {
-      html += `<button onclick="PlaylistPage.goToPage(${currentPage + 1})"><i class="fa-solid fa-chevron-right"></i></button>`;
+      html += `<button type="button" data-action="go-page" data-page="${currentPage + 1}" aria-label="Next page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>`;
     }
 
-    container.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['onclick'] });
+    container.innerHTML = DOMPurify.sanitize(html);
   }
 
   function goToPage(page) {
@@ -319,6 +345,13 @@ const PlaylistPage = (() => {
     document.getElementById('add-playlist-modal').classList.add('hidden');
     document.getElementById('btn-add-playlist-fab')?.classList.remove('active');
     document.getElementById('add-playlist-form').reset();
+    const dupe = PPUtils.findDuplicatePlaylist(allPlaylists, playlistId);
+    if (dupe) {
+      document.getElementById('add-playlist-error').textContent = `"${dupe.title}" is already in your library. Open it and use Sync to pick up new videos.`;
+      document.getElementById('add-playlist-error').classList.remove('hidden');
+      return;
+    }
+
     document.getElementById('add-playlist-error').classList.add('hidden');
     document.getElementById('add-playlist-loading').classList.add('hidden');
   }
@@ -464,16 +497,16 @@ const PlaylistPage = (() => {
       }
 
       let html = filtered.map(t =>
-        `<div class="tag-suggestion-item" data-tag="${t}"><i class="fa-solid fa-tag"></i> ${t}</div>`
+        `<div class="tag-suggestion-item" data-tag="${PPUtils.escapeHtml(t)}"><i class="fa-solid fa-tag"></i> ${PPUtils.escapeHtml(t)}</div>`
       ).join('');
 
       if (val && !filtered.some(t => t.toLowerCase() === val)) {
-        html += `<div class="tag-suggestion-item tag-suggestion-create" data-tag="${input.value.trim()}"><i class="fa-solid fa-plus"></i> Create "${input.value.trim()}"</div>`;
+        html += `<div class="tag-suggestion-item tag-suggestion-create" data-tag="${PPUtils.escapeHtml(input.value.trim())}"><i class="fa-solid fa-plus"></i> Create "${PPUtils.escapeHtml(input.value.trim())}"</div>`;
       }
 
       if (!html) { suggestionsEl.classList.add('hidden'); return; }
 
-      suggestionsEl.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['onclick'] });
+      suggestionsEl.innerHTML = DOMPurify.sanitize(html);
       suggestionsEl.classList.remove('hidden');
 
       suggestionsEl.querySelectorAll('.tag-suggestion-item').forEach(item => {
@@ -542,15 +575,14 @@ const PlaylistPage = (() => {
     try {
       const result = await YouTubeAPI.fetchFullPlaylist(pl.playlistId);
       const existingVideos = await FirestoreOps.getVideos(playlistId);
-      const existingIds = new Set(existingVideos.map(v => v.id));
-      const newVideos = result.videos.filter(v => !existingIds.has(v.videoId));
+      // Additive sync only: existing video docs (progress, notes) are never rewritten or deleted.
+      const { toAdd: newVideos, missingRemotely } = PPUtils.planSync(existingVideos, result.videos);
       if (newVideos.length === 0) {
-        showToast('Playlist is already up to date!', 'info');
+        showToast(missingRemotely.length
+          ? `Up to date. ${missingRemotely.length} video(s) are no longer on YouTube; your progress on them was kept.`
+          : 'Playlist is already up to date!', 'info');
         return;
       }
-      // Add new videos starting after existing positions
-      const maxPos = existingVideos.reduce((m, v) => Math.max(m, v.position || 0), 0);
-      newVideos.forEach((v, i) => { v.position = maxPos + i + 1; });
       await FirestoreOps.addVideos(playlistId, newVideos);
       await FirestoreOps.updatePlaylist(playlistId, {
         totalVideos: existingVideos.length + newVideos.length,
@@ -583,9 +615,7 @@ const PlaylistPage = (() => {
     if (!ok) return;
     showToast(`Marking all videos as ${label}...`, 'info');
     try {
-      for (const v of currentVideos) {
-        await FirestoreOps.updateVideo(currentPlaylist.id, v.id, { completed });
-      }
+      await FirestoreOps.setAllVideosCompleted(currentPlaylist.id, currentVideos.map(v => v.id), completed);
       const doneCount = completed ? currentVideos.length : 0;
       await FirestoreOps.updatePlaylist(currentPlaylist.id, {
         completedCount: doneCount,
@@ -628,7 +658,7 @@ const PlaylistPage = (() => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `playpulse_export_${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `playpulse_export_${PPUtils.localDateStr()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

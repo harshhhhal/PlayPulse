@@ -40,6 +40,7 @@
     rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/design-system.css" />
   <link rel="stylesheet" href="css/app.css" />
   <script>document.documentElement.setAttribute('data-theme', localStorage.getItem('playpulse_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'));</script>
 </head>
@@ -59,6 +60,7 @@
     <p>Loading your dashboard...</p>
   </div>
 
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <div id="app" class="app hidden">
     <!-- ======= SIDEBAR ======= -->
     <aside id="sidebar" class="sidebar">
@@ -72,7 +74,7 @@
         </button>
       </div>
 
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="Main">
         <a href="#" class="nav-item active" data-tab="dashboard" title="Dashboard">
           <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
         </a>
@@ -105,13 +107,13 @@
     </aside>
 
     <!-- ======= MAIN CONTENT ======= -->
-    <main class="main-content" id="main-content">
+    <main class="main-content" id="main-content" tabindex="-1">
       <header class="topbar">
         <button id="btn-mobile-menu" class="btn-mobile-menu" aria-label="Open navigation menu" aria-expanded="false">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <h2 class="page-title" id="page-title"><img src="favicon/favicon.svg" alt="" class="page-title-logo" />
-          Dashboard</h2>
+        <h1 class="page-title" id="page-title"><img src="favicon/favicon.svg" alt="" class="page-title-logo" />
+          Dashboard</h1>
         <div class="topbar-right">
           <span id="offline-badge" class="offline-badge hidden"><i class="fa-solid fa-triangle-exclamation"></i>
             Offline</span>
@@ -435,7 +437,7 @@
           <!-- Profile Header -->
           <div class="profile-card">
             <div class="profile-header">
-              <img id="profile-avatar" src="assets/avatar-default.png" alt="Avatar" class="profile-avatar-lg">
+              <img id="profile-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23334155'/%3E%3Ccircle cx='32' cy='25' r='11' fill='%2394a3b8'/%3E%3Cpath d='M10 60c2-14 12-21 22-21s20 7 22 21z' fill='%2394a3b8'/%3E%3C/svg%3E" alt="Your profile photo" class="profile-avatar-lg">
               <div class="profile-info">
                 <h2 id="profile-name" class="profile-name">User Name</h2>
                 <p id="profile-email" class="profile-email">email@example.com</p>
@@ -886,6 +888,13 @@
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
   <!-- Sidebar Overlay -->
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <a href="#dashboard" data-tab="dashboard"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i><span>Dashboard</span></a>
+    <a href="#playlists" data-tab="playlists"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Courses</span></a>
+    <a href="#analytics" data-tab="analytics"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span>Analytics</span></a>
+    <a href="#profile" data-tab="profile"><i class="fa-solid fa-user" aria-hidden="true"></i><span>Profile</span></a>
+  </nav>
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
   <button id="btn-add-playlist-fab" class="btn-fab hidden" title="Add Playlist">
@@ -947,6 +956,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/email.js"></script>

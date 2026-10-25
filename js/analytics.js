@@ -111,7 +111,7 @@ const Analytics = (() => {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
       labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
-      dates.push(d.toISOString().slice(0, 10));
+      dates.push(PPUtils.localDateStr(d));
     }
     return { labels, dates };
   }
@@ -123,7 +123,7 @@ const Analytics = (() => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
       labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-      dates.push(d.toISOString().slice(0, 10));
+      dates.push(PPUtils.localDateStr(d));
     }
     return { labels, dates };
   }
@@ -207,7 +207,7 @@ const Analytics = (() => {
     const days = [];
     for (let i = 364; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
-      days.push(d.toISOString().slice(0, 10));
+      days.push(PPUtils.localDateStr(d));
     }
 
     // Fetch logs for the range
@@ -302,12 +302,12 @@ const Analytics = (() => {
           // Future date — empty invisible cell
           td.innerHTML = '<div class="heat-cell heat-l0" style="visibility:hidden"></div>';
         } else {
-          const dateStr = cellDate.toISOString().slice(0, 10);
+          const dateStr = PPUtils.localDateStr(cellDate);
           const mins = logMap[dateStr] || 0;
           const level = getLevel(mins);
           const cellDiv = document.createElement('div');
           cellDiv.className = `heat-cell heat-l${level}`;
-          if (dateStr === today.toISOString().slice(0, 10)) cellDiv.classList.add('heat-today');
+          if (dateStr === PPUtils.localDateStr(today)) cellDiv.classList.add('heat-today');
 
           // Popover tooltip
           const popover = document.createElement('div');

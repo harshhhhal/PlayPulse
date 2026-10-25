@@ -3,6 +3,12 @@
    ============================================ */
 
 (function () {
+  // Replaces the old inline onerror= handler (needed for a strict CSP): swap broken avatars for initials.
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (t && t.tagName === 'IMG' && t.dataset && t.dataset.fallback && t.src !== t.dataset.fallback) t.src = t.dataset.fallback;
+  }, true);
+  const esc = PPUtils.escapeHtml; // all Firestore-sourced text is escaped before innerHTML (BUG-002)
   const ADMIN_EMAIL = 'neonone739@gmail.com';
   
   // Dashboard & State Variables
@@ -21,8 +27,8 @@
 
   // Helper to determine user activity status
   function getUserStatus(u) {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const todayStr = PPUtils.localDateStr();
+    const yesterdayStr = PPUtils.daysAgoStr(1);
 
     if (u.lastStreakDate === todayStr) {
       return { text: 'Active Today', class: 'status-today' };
@@ -177,8 +183,8 @@
       document.getElementById('stat-avg-level').textContent = avgLevel;
 
       // Fetch daily logs of the last 7 days for ALL users in parallel to draw overall watch time
-      const yesterday = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterday = PPUtils.daysAgoStr(6);
+      const todayStr = PPUtils.localDateStr();
       
       const logPromises = allUsers.map(async (u) => {
         try {
@@ -275,19 +281,17 @@
         : 'Unknown';
 
       const initialsAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.displayName || 'User')}&background=2563eb&color=ffffff&bold=true`;
-      const avatarUrl = (u.photoURL && u.photoURL.trim() !== '') 
-        ? u.photoURL 
-        : ((u.photoUrl && u.photoUrl.trim() !== '') ? u.photoUrl : initialsAvatar);
+      const avatarUrl = PPUtils.safeHttpUrl(u.photoURL || '') || PPUtils.safeHttpUrl(u.photoUrl || '') || initialsAvatar;
 
       const status = getUserStatus(u);
 
       tr.innerHTML = `
         <td>
           <div class="admin-user-cell">
-            <img src="${avatarUrl}" onerror="this.src='${initialsAvatar}'" alt="" />
+            <img src="${esc(avatarUrl)}" data-fallback="${esc(initialsAvatar)}" alt="" />
             <div>
-              <div class="admin-user-name">${u.displayName || 'Unnamed Student'}</div>
-              <div class="admin-user-email">${u.email || 'No email'}</div>
+              <div class="admin-user-name">${esc(u.displayName || 'Unnamed Student')}</div>
+              <div class="admin-user-email">${esc(u.email || 'No email')}</div>
               <div style="margin-top: 4px; display: flex; align-items: center;">
                 <span class="status-dot ${status.class}"></span>
                 <span class="status-text">${status.text}</span>
@@ -295,17 +299,18 @@
             </div>
           </div>
         </td>
-        <td><span class="admin-badge level">Lv ${u.level || 1}</span></td>
-        <td><span class="admin-badge xp">${(u.totalXP || 0).toLocaleString()} XP</span></td>
-        <td><span class="admin-badge streak">🔥 ${u.currentStreak || 0}</span></td>
-        <td class="hide-mobile">${parseFloat((u.totalHours || 0).toFixed(1))} hrs</td>
+        <td><span class="admin-badge level">Lv ${Number(u.level) || 1}</span></td>
+        <td><span class="admin-badge xp">${(Number(u.totalXP) || 0).toLocaleString()} XP</span></td>
+        <td><span class="admin-badge streak">🔥 ${Number(u.currentStreak) || 0}</span></td>
+        <td class="hide-mobile">${parseFloat((Number(u.totalHours) || 0).toFixed(1))} hrs</td>
         <td class="hide-mobile">${joinedDate}</td>
         <td>
-          <button class="btn-table-action" onclick="viewUserActivity('${u.id}')">
+          <button type="button" class="btn-table-action" data-uid="${esc(u.id)}">
             <i class="fa-solid fa-eye"></i> View Activity
           </button>
         </td>
       `;
+      tr.querySelector('.btn-table-action').addEventListener('click', () => viewUserActivity(u.id));
       tbody.appendChild(tr);
     });
   }
@@ -337,19 +342,19 @@
     exportCsvBtn.addEventListener('click', () => {
       let csv = 'Name,Email,Level,Total XP,Current Streak,Longest Streak,Status,Last Active,Joined Date\r\n';
       allUsers.forEach(u => {
-        const name = (u.displayName || 'Unnamed').replace(/,/g, '');
-        const email = (u.email || '').replace(/,/g, '');
         const status = getUserStatus(u).text;
-        const lastActive = u.lastStreakDate || 'N/A';
-        const joined = u.createdAt?.toDate ? u.createdAt.toDate().toISOString().slice(0, 10) : 'N/A';
-        csv += `"${name}","${email}",${u.level || 1},${u.totalXP || 0},${u.currentStreak || 0},${u.longestStreak || 0},"${status}","${lastActive}","${joined}"\r\n`;
+        const joined = u.createdAt?.toDate ? PPUtils.localDateStr(u.createdAt.toDate()) : 'N/A';
+        // csvCell quotes every text cell and defuses =,+,-,@ formula prefixes (BUG-003)
+        csv += [PPUtils.csvCell(u.displayName || 'Unnamed'), PPUtils.csvCell(u.email || ''), u.level || 1, u.totalXP || 0,
+          u.currentStreak || 0, u.longestStreak || 0, PPUtils.csvCell(status),
+          PPUtils.csvCell(u.lastStreakDate || 'N/A'), PPUtils.csvCell(joined)].join(',') + '\r\n';
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", `playpulse_users_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute("download", `playpulse_users_export_${PPUtils.localDateStr()}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -425,7 +430,7 @@
       
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
-        const dStr = d.toISOString().slice(0, 10);
+        const dStr = PPUtils.localDateStr(d);
         dates.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
         
         const dayTotalMins = cachedLogs
@@ -496,9 +501,7 @@
 
     // Fill general profile stats
     const initialsAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=2563eb&color=ffffff&bold=true`;
-    const avatarUrl = (user.photoURL && user.photoURL.trim() !== '') 
-      ? user.photoURL 
-      : ((user.photoUrl && user.photoUrl.trim() !== '') ? user.photoUrl : initialsAvatar);
+    const avatarUrl = PPUtils.safeHttpUrl(user.photoURL || '') || PPUtils.safeHttpUrl(user.photoUrl || '') || initialsAvatar;
 
     const detailAvatar = document.getElementById('detail-user-avatar');
     detailAvatar.src = avatarUrl;
@@ -559,7 +562,7 @@
 
           item.innerHTML = `
             <i class="${iconClass}"></i>
-            <span style="font-weight:600;margin-top:4px;">${ach.badgeName || ach.id}</span>
+            <span style="font-weight:600;margin-top:4px;">${esc(ach.badgeName || ach.id)}</span>
             <span style="font-size:10px;color:var(--text-muted);">${earnedAtStr}</span>
           `;
           badgesDiv.appendChild(item);
@@ -591,8 +594,8 @@
           const tr = document.createElement('tr');
           const ytUrl = pl.playlistId ? `https://www.youtube.com/playlist?list=${pl.playlistId}` : '#';
           tr.innerHTML = `
-            <td><strong style="color:var(--text-primary);">${pl.title || 'Untitled Playlist'}</strong></td>
-            <td><span class="admin-badge level" style="font-size:11px;padding:2px 8px;">${pl.tag || 'Other'}</span></td>
+            <td><strong style="color:var(--text-primary);">${esc(pl.title || 'Untitled Playlist')}</strong></td>
+            <td><span class="admin-badge level" style="font-size:11px;padding:2px 8px;">${esc(pl.tag || 'Other')}</span></td>
             <td>${total} videos</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px;">
@@ -779,7 +782,7 @@
 
   function openActionModal(title, description, defaultValue, callback) {
     const modal = document.getElementById('admin-action-modal');
-    document.getElementById('action-modal-title').innerHTML = `<i class="fa-solid fa-gear"></i> ${title}`;
+    document.getElementById('action-modal-title').innerHTML = `<i class="fa-solid fa-gear" aria-hidden="true"></i> ${esc(title)}`;
     document.getElementById('action-modal-desc').textContent = description;
 
     const xpGroup = document.getElementById('xp-input-group');

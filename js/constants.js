@@ -86,15 +86,23 @@ function getLevelTitle(level) {
 // Toast helper — Implementation moved to ui.js (ORG-1)
 // This stub ensures showToast is available for modules that load before ui.js
 function showToast(message, type = 'info') {
-  // If ui.js has loaded and overridden this, that version will be used.
-  // This is a fallback for early-loading modules (auth.js, firestore.js).
+  // Safe: message is inserted as text, never parsed as HTML (BUG-002).
   const container = document.getElementById('toast-container');
-  if (!container) { console.log(`[Toast] ${type}: ${message}`); return; }
+  if (!container) return;
+  if (!container.hasAttribute('role')) { container.setAttribute('role', 'status'); container.setAttribute('aria-live', 'polite'); }
+  const icons = { success: 'fa-check', error: 'fa-xmark', warning: 'fa-triangle-exclamation' };
+  const kind = icons[type] ? type : 'info';
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : type === 'error' ? 'fa-xmark' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-info-circle'}"></i> ${message}`;
+  toast.className = `toast ${kind}`;
+  const icon = document.createElement('i');
+  icon.className = `fa-solid ${icons[kind] || 'fa-info-circle'}`;
+  icon.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = String(message);
+  toast.append(icon, ' ', text);
   container.appendChild(toast);
-  setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
+  const life = kind === 'error' ? 6000 : 3500;
+  setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, life);
 }
 
 // Shared utility: tag class helper

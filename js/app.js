@@ -33,9 +33,12 @@ const AppRouter = (() => {
     if (panel) panel.classList.add('active');
 
     // Update sidebar nav active state (profile is not in sidebar)
-    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.tab === tab);
+    document.querySelectorAll('.sidebar-nav .nav-item, .bottom-nav a').forEach(item => {
+      const on = item.dataset.tab === tab;
+      item.classList.toggle('active', on);
+      if (on) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
     });
+    document.title = `${TAB_TITLES[tab]} · PlayPulse`;
 
     // Handle FAB visibility
     const fab = document.getElementById('btn-add-playlist-fab');
@@ -46,7 +49,7 @@ const AppRouter = (() => {
     // Update page title with logo
     const titleEl = document.getElementById('page-title');
     if (titleEl) {
-      titleEl.innerHTML = `<img src="favicon/favicon.svg" alt="" class="page-title-logo" /> ${TAB_TITLES[tab]}`;
+      titleEl.textContent = TAB_TITLES[tab];
     }
 
     // Update URL hash (preserve playlist sub-route if already set)
@@ -403,10 +406,9 @@ function showConfirm(title, message, okLabel = 'Delete') {
    ============================================ */
 function initDOMEventBindings() {
   // Sidebar nav + brand
-  document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-brand').forEach(link => {
+  document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-brand, .bottom-nav a').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      document.activeElement?.blur();
       const tab = link.dataset.tab;
       if (tab) AppRouter.switchTab(tab);
     });
@@ -809,7 +811,7 @@ function initNotifications(user) {
 let lastProgressState = null;
 
 function watchStudentProgress(user) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = PPUtils.localDateStr();
 
   // A. Monitor user progress (Level, Streak, XP milestones)
   db.collection('users').doc(user.uid).onSnapshot((doc) => {
@@ -943,7 +945,7 @@ function renderNotifications() {
         style: activeAnnouncement.type,
         icon: activeAnnouncement.type === 'warning' ? 'fa-solid fa-triangle-exclamation' : (activeAnnouncement.type === 'success' ? 'fa-solid fa-trophy' : 'fa-solid fa-bullhorn'),
         isClearable: true,
-        clearAction: `dismissGlobalAnnouncement(event, \`${activeAnnouncement.message.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)`
+        clear: (ev) => dismissGlobalAnnouncement(ev, activeAnnouncement.message)
       });
     }
   }
@@ -956,7 +958,7 @@ function renderNotifications() {
       style: 'info',
       icon: 'fa-solid fa-bell',
       isClearable: true,
-      clearAction: 'dismissNudgeNotification(event)'
+      clear: (ev) => dismissNudgeNotification(ev)
     });
   }
 
@@ -968,7 +970,7 @@ function renderNotifications() {
       style: notif.style || 'info',
       icon: notif.icon || 'fa-solid fa-bell',
       isClearable: true,
-      clearAction: `deleteNotification('${notif.id}', event)`
+      clear: (ev) => deleteNotification(notif.id, ev)
     });
   });
 
@@ -1008,15 +1010,26 @@ function renderNotifications() {
     item.style.background = bg;
     item.style.color = color;
 
-    item.innerHTML = `
-      <i class="${notif.icon}" style="margin-top: 2px; color: var(--accent);"></i>
-      <div style="flex-grow: 1; font-weight: 500;">${notif.text}</div>
-      ${notif.isClearable ? `
-        <button onclick="${notif.clearAction}" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; display: flex; align-items: center; justify-content: center; margin-top: 2px;">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      ` : ''}
-    `;
+    // Built with DOM APIs + textContent: notification text can contain user-controlled
+    // strings (e.g. display names), so it must never be parsed as HTML (BUG-002).
+    const ico = document.createElement('i');
+    ico.className = /^[a-z0-9 -]+$/i.test(notif.icon) ? notif.icon : 'fa-solid fa-bell';
+    ico.style.cssText = 'margin-top:2px;color:var(--accent)';
+    ico.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('div');
+    body.style.cssText = 'flex-grow:1;font-weight:500';
+    body.textContent = notif.text;
+    item.append(ico, body);
+    if (notif.isClearable) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'notif-dismiss';
+      btn.setAttribute('aria-label', 'Dismiss notification');
+      btn.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 4px;display:flex;align-items:center;justify-content:center;margin-top:2px';
+      btn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+      btn.addEventListener('click', notif.clear);
+      item.appendChild(btn);
+    }
     listEl.appendChild(item);
   });
 }

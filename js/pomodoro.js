@@ -13,6 +13,7 @@ const Pomodoro = (() => {
   let totalSeconds = 0;
   let remainingSeconds = 0;
   let timerInterval = null;
+  let endTs = 0;
   let sessionsCompleted = 0;
   const SESSIONS_PER_CYCLE = 4;
   const LONG_BREAK_MIN = 15;
@@ -98,11 +99,16 @@ const Pomodoro = (() => {
       document.getElementById('btn-pomodoro-start').classList.add('hidden');
       document.getElementById('btn-pomodoro-pause').classList.remove('hidden');
 
-      timerInterval = setInterval(tick, 1000);
+      // BUG-008: never stack intervals, and derive time from an absolute end timestamp so
+      // throttled background tabs don't make the timer run slow.
+      clearInterval(timerInterval);
+      endTs = Date.now() + remainingSeconds * 1000;
+      timerInterval = setInterval(tick, 500);
     }
   }
 
   function pause() {
+    remainingSeconds = PPUtils.remainingFromEnd(endTs);
     paused = true;
     clearInterval(timerInterval);
     document.getElementById('btn-pomodoro-start').classList.remove('hidden');
@@ -127,7 +133,7 @@ const Pomodoro = (() => {
   }
 
   function tick() {
-    remainingSeconds--;
+    remainingSeconds = PPUtils.remainingFromEnd(endTs);
     if (remainingSeconds <= 0) {
       clearInterval(timerInterval);
       running = false;

@@ -1,0 +1,41 @@
+// ============================================================================
+// PlayPulse — Firestore security rules TEMPLATE
+// NOT deployed by this project. Review, replace ADMIN_EMAIL_HERE, test in the
+// Firebase Emulator / Rules Playground, then deploy yourself:
+//   firebase deploy --only firestore:rules
+// Collections below are exactly the ones the client code uses today.
+// ============================================================================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // The admin console (admin.html) authorises by Google account e-mail.
+    // Require a verified e-mail so the check cannot be spoofed.
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'ADMIN_EMAIL_HERE';
+    }
+
+    // users/{uid} and every subcollection (playlists, videos, dailyLogs,
+    // achievements, skillProgress, notifications).
+    match /users/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
+      match /{document=**} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+    }
+
+    // Global announcement banner: any signed-in user may read, only admin writes.
+    match /announcements/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Everything else is denied.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

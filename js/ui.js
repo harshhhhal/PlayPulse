@@ -326,13 +326,23 @@ const UI = (() => {
 
 // ORG-1: showToast() â€” primary implementation (overrides config.js stub)
 function showToast(message, type = 'info') {
+  // Safe: message is inserted as text, never parsed as HTML (BUG-002).
   const container = document.getElementById('toast-container');
-  if (!container) { console.log(`[Toast] ${type}: ${message}`); return; }
+  if (!container) return;
+  if (!container.hasAttribute('role')) { container.setAttribute('role', 'status'); container.setAttribute('aria-live', 'polite'); }
+  const icons = { success: 'fa-check', error: 'fa-xmark', warning: 'fa-triangle-exclamation' };
+  const kind = icons[type] ? type : 'info';
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = DOMPurify.sanitize(`<i class="fa-solid ${type === 'success' ? 'fa-check' : type === 'error' ? 'fa-xmark' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-info-circle'}"></i> ${message}`);
+  toast.className = `toast ${kind}`;
+  const icon = document.createElement('i');
+  icon.className = `fa-solid ${icons[kind] || 'fa-info-circle'}`;
+  icon.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = String(message);
+  toast.append(icon, ' ', text);
   container.appendChild(toast);
-  setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
+  const life = kind === 'error' ? 6000 : 3500;
+  setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, life);
 }
 
 /* ---------- Profile Editor (UX-23) ---------- */

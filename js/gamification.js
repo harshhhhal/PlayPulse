@@ -7,7 +7,7 @@ const Gamification = (() => {
 
   // ---------- Core XP awarding ----------
   async function _addXP(amount, label) {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const oldXP = userData.totalXP || 0;
     const oldLevel = getLevelFromXP(oldXP).level;
     const newXP = oldXP + amount;
@@ -79,7 +79,7 @@ const Gamification = (() => {
 
   // ---------- Combo System ----------
   async function getComboMultiplier() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const comboStreak = userData.comboStreak || 0;
     let multi = 1;
     for (const t of COMBO_THRESHOLDS) {
@@ -90,11 +90,11 @@ const Gamification = (() => {
 
   async function updateCombo() {
     // Called once per day when a video is completed
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const today = FirestoreOps.todayStr();
     if (userData.lastComboDate === today) return; // already counted today
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = PPUtils.daysAgoStr(1);
     let comboStreak = userData.comboStreak || 0;
 
     if (userData.lastComboDate === yesterday) {
@@ -114,7 +114,7 @@ const Gamification = (() => {
 
   // ---------- Streak Recovery ----------
   async function useStreakRecovery() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const lastUsed = userData.lastStreakRecoveryUsed || '';
     const daysSince = lastUsed ? Math.floor((Date.now() - new Date(lastUsed).getTime()) / 86400000) : 999;
 
@@ -143,7 +143,7 @@ const Gamification = (() => {
   }
 
   async function canUseStreakRecovery() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     if (!userData) return false;
     if ((userData.currentStreak || 0) > 0) return false;
     const lastUsed = userData.lastStreakRecoveryUsed || '';
@@ -189,7 +189,7 @@ const Gamification = (() => {
   }
 
   async function updateComboDisplay() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const comboStreak = userData?.comboStreak || 0;
     const multi = COMBO_THRESHOLDS.reduce((m, t) => comboStreak >= t.days ? t.multiplier : m, 1);
     const el = document.getElementById('combo-display');
@@ -201,7 +201,7 @@ const Gamification = (() => {
 
   // ---------- Achievements ----------
   async function checkAchievements() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     const playlists = await FirestoreOps.getPlaylists();
 
     let totalVideosCompleted = 0;
@@ -361,7 +361,7 @@ const Gamification = (() => {
 
   // ---------- Lifecycle ----------
   async function loadAndDisplay() {
-    const userData = await FirestoreOps.getUserData();
+    const userData = (await FirestoreOps.getUserData()) || {};
     if (!userData) return;
     const levelInfo = getLevelFromXP(userData.totalXP || 0);
     updateXPDisplay(userData.totalXP || 0, levelInfo);

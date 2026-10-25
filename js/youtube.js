@@ -5,17 +5,8 @@
 const YouTubeAPI = (() => {
 
   // Extract playlist ID from various URL formats
-  function extractPlaylistId(url) {
-    const patterns = [
-      /[?&]list=([a-zA-Z0-9_-]+)/,
-      /playlist\?list=([a-zA-Z0-9_-]+)/
-    ];
-    for (const p of patterns) {
-      const m = url.match(p);
-      if (m) return m[1];
-    }
-    return null;
-  }
+  // Strict parsing lives in utils.js so it can be unit tested (BUG-006)
+  const extractPlaylistId = PPUtils.extractPlaylistId;
 
   // Parse ISO 8601 duration (PT1H23M45S → seconds)
   function parseDuration(iso) {
@@ -65,7 +56,7 @@ const YouTubeAPI = (() => {
     }
     const data = await res.json();
     checkApiError(data);
-    if (!data.items || data.items.length === 0) throw new Error('Playlist not found or is private');
+    if (!data.items || data.items.length === 0) throw new Error('Playlist not found. It may be private, deleted, or the link is wrong.');
     const item = data.items[0];
     return {
       title: item.snippet.title,
@@ -81,7 +72,7 @@ const YouTubeAPI = (() => {
 
     do {
       if (pageToken) await delay(200); // SECURITY (MED-3): Rate limit to prevent quota exhaustion
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}${pageToken ? `&pageToken=${pageToken}` : ''}`;
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
       const res = await fetch(url);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -91,7 +82,8 @@ const YouTubeAPI = (() => {
       const data = await res.json();
       checkApiError(data);
 
-      for (const item of data.items) {
+      for (const item of (data.items || [])) {
+        if (!item.snippet?.resourceId?.videoId) continue;
         if (item.snippet.title === 'Private video' || item.snippet.title === 'Deleted video') continue;
         items.push({
           videoId: item.snippet.resourceId.videoId,
@@ -130,7 +122,7 @@ const YouTubeAPI = (() => {
       }
       const data = await res.json();
       checkApiError(data);
-      for (const item of data.items) {
+      for (const item of (data.items || [])) {
         durations[item.id] = parseDuration(item.contentDetails.duration);
       }
     }
@@ -141,13 +133,13 @@ const YouTubeAPI = (() => {
   // Complete workflow: fetch playlist + videos + durations
   // Accepts either a full URL or a raw playlist ID
   async function fetchFullPlaylist(playlistUrlOrId) {
-    const playlistId = extractPlaylistId(playlistUrlOrId) || playlistUrlOrId;
-    if (!playlistId) throw new Error('Invalid playlist URL');
+    const playlistId = extractPlaylistId(playlistUrlOrId);
+    if (!playlistId) throw new Error('That does not look like a YouTube playlist link or ID.');
 
     const info = await fetchPlaylistInfo(playlistId);
-    const items = await fetchPlaylistItems(playlistId);
+    const items = PPUtils.dedupeVideos(await fetchPlaylistItems(playlistId));
 
-    if (items.length === 0) throw new Error('No videos found in this playlist');
+    if (items.length === 0) throw new Error('No playable videos were found. The playlist may be empty or all videos are private/deleted.');
 
     const videoIds = items.map(i => i.videoId);
     const durations = await fetchVideoDurations(videoIds);

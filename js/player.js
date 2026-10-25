@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    Video Player Module (YouTube IFrame API)
    ============================================ */
 
@@ -141,11 +141,7 @@ const Player = (() => {
     await FirestoreOps.updateVideo(currentPlaylistId, currentVideoDocId, {
       watchedSeconds: firebase.firestore.FieldValue.increment(elapsedSec)
     });
-    const log = await FirestoreOps.getTodayLog();
-    await FirestoreOps.updateTodayLog({
-      date: FirestoreOps.todayStr(),
-      minutesStudied: (log.minutesStudied || 0) + (elapsedSec / 60)
-    });
+    await FirestoreOps.incrementTodayLog({ minutesStudied: elapsedSec / 60 });
   }
 
   /** Save partial progress on pause/stop with actual elapsed seconds since last save */
@@ -158,15 +154,17 @@ const Player = (() => {
     await FirestoreOps.updateVideo(currentPlaylistId, currentVideoDocId, {
       watchedSeconds: firebase.firestore.FieldValue.increment(elapsedSec)
     });
-    const log = await FirestoreOps.getTodayLog();
-    await FirestoreOps.updateTodayLog({
-      date: FirestoreOps.todayStr(),
-      minutesStudied: (log.minutesStudied || 0) + (elapsedSec / 60)
-    });
+    await FirestoreOps.incrementTodayLog({ minutesStudied: elapsedSec / 60 });
   }
 
   async function markCurrentCompleted() {
     if (!currentPlaylistId || !currentVideoDocId) return;
+
+    // BUG-001: re-watching an already completed video used to award XP and
+    // daily-log credit again. Only the first completion counts.
+    const already = await FirestoreOps.getVideos(currentPlaylistId).then(
+      vs => vs.find(v => v.id === currentVideoDocId)?.completed === true);
+    if (already) { updateMarkButton(true); return; }
 
     await FirestoreOps.updateVideo(currentPlaylistId, currentVideoDocId, { completed: true });
 
@@ -180,11 +178,7 @@ const Player = (() => {
       estimatedRemainingTime: YouTubeAPI.formatHoursMinutes(remainingDuration)
     });
 
-    const log = await FirestoreOps.getTodayLog();
-    await FirestoreOps.updateTodayLog({
-      date: FirestoreOps.todayStr(),
-      videosCompleted: (log.videosCompleted || 0) + 1
-    });
+    await FirestoreOps.incrementTodayLog({ videosCompleted: 1 });
 
     // Award XP with momentum/tag info
     await Gamification.awardVideoComplete({ wasResumed, tag: currentPlaylistTag });

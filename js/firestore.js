@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    Firestore Operations Module
    ============================================ */
 
@@ -46,11 +46,19 @@ const FirestoreOps = (() => {
   }
 
   async function deletePlaylist(playlistId) {
-    const videos = await playlistsCol().doc(playlistId).collection('videos').get();
-    const batch = db.batch();
-    videos.docs.forEach(v => batch.delete(v.ref));
-    batch.delete(playlistsCol().doc(playlistId));
-    await batch.commit();
+    // Firestore batches are limited to 500 writes; delete videos in chunks first,
+    // then the playlist doc last so a partial failure can simply be retried (BUG-005).
+    const videos = await videosColRaw(playlistId).get();
+    for (const group of PPUtils.chunk(videos.docs, 450)) {
+      const batch = db.batch();
+      group.forEach(v => batch.delete(v.ref));
+      await batch.commit();
+    }
+    await playlistsCol().doc(playlistId).delete();
+  }
+
+  function videosColRaw(playlistId) {
+    return playlistsCol().doc(playlistId).collection('videos');
   }
 
   // ---------- Videos ----------
@@ -59,15 +67,11 @@ const FirestoreOps = (() => {
   }
 
   async function addVideos(playlistId, videosArray) {
-    const chunks = [];
-    for (let i = 0; i < videosArray.length; i += 450) {
-      chunks.push(videosArray.slice(i, i + 450));
-    }
-    for (const chunk of chunks) {
+    const unique = PPUtils.dedupeVideos(videosArray); // repeated videoIds would collapse into one doc (BUG-007)
+    for (const chunk of PPUtils.chunk(unique, 450)) {
       const batch = db.batch();
-      chunk.forEach((v, idx) => {
-        const ref = videosCol(playlistId).doc(v.videoId || `v_${Date.now()}_${idx}`);
-        batch.set(ref, {
+      chunk.forEach(v => {
+        batch.set(videosCol(playlistId).doc(v.videoId), {
           title: v.title,
           thumbnail: v.thumbnail,
           duration: v.duration || 0,
@@ -76,9 +80,18 @@ const FirestoreOps = (() => {
           notes: '',
           watchedSeconds: 0,
           lastWatchedAt: null,
-          position: v.position || idx
+          position: Number.isFinite(v.position) ? v.position : 0
         });
       });
+      await batch.commit();
+    }
+    return unique.length;
+  }
+
+  async function setAllVideosCompleted(playlistId, videoIds, completed) {
+    for (const group of PPUtils.chunk(videoIds, 450)) {
+      const batch = db.batch();
+      group.forEach(id => batch.update(videosCol(playlistId).doc(id), { completed }));
       await batch.commit();
     }
   }
@@ -98,7 +111,7 @@ const FirestoreOps = (() => {
   }
 
   function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return PPUtils.localDateStr();
   }
 
   async function getTodayLog() {
@@ -108,6 +121,13 @@ const FirestoreOps = (() => {
 
   async function updateTodayLog(data) {
     await dailyLogsCol().doc(todayStr()).set(data, { merge: true });
+  }
+
+  /** Atomically add to today's counters (avoids read-modify-write races between tabs/timers). */
+  async function incrementTodayLog(fields) {
+    const inc = {};
+    for (const [k, v] of Object.entries(fields)) inc[k] = firebase.firestore.FieldValue.increment(v);
+    await dailyLogsCol().doc(todayStr()).set({ date: todayStr(), ...inc }, { merge: true });
   }
 
   async function getLogsRange(startDate, endDate) {
@@ -146,33 +166,16 @@ const FirestoreOps = (() => {
   async function checkAndUpdateStreak() {
     const userData = await getUserData();
     if (!userData) return;
-
-    const today = todayStr();
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
     const todayLog = await getTodayLog();
-    if (todayLog.videosCompleted < 1) return;
-
-    if (userData.lastStreakDate === today) return;
-
-    let currentStreak = userData.currentStreak || 0;
-    let longestStreak = userData.longestStreak || 0;
-
-    if (userData.lastStreakDate === yesterday) {
-      currentStreak += 1;
-    } else if (userData.lastStreakDate !== today) {
-      currentStreak = 1;
-    }
-
-    longestStreak = Math.max(longestStreak, currentStreak);
-
+    if ((todayLog.videosCompleted || 0) < 1) return;
+    const next = PPUtils.nextStreak(userData, todayStr());
+    if (!next.changed) return;
     await updateUser({
-      currentStreak,
-      longestStreak,
-      lastStreakDate: today
+      currentStreak: next.currentStreak,
+      longestStreak: next.longestStreak,
+      lastStreakDate: next.lastStreakDate
     });
-
-    return { currentStreak, longestStreak };
+    return next;
   }
 
   // ---------- Resume ----------
@@ -251,8 +254,8 @@ const FirestoreOps = (() => {
   return {
     getUserData, updateUser,
     addPlaylist, getPlaylists, getPlaylist, updatePlaylist, deletePlaylist,
-    addVideos, getVideos, updateVideo,
-    getTodayLog, updateTodayLog, getLogsRange,
+    addVideos, getVideos, updateVideo, setAllVideosCompleted,
+    getTodayLog, updateTodayLog, incrementTodayLog, getLogsRange,
     getAchievements, unlockAchievement,
     checkAndUpdateStreak,
     getResumeVideos,

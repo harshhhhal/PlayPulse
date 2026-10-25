@@ -1,0 +1,12 @@
+{
+  "name": "playpulse",
+  "private": true,
+  "version": "1.1.0",
+  "description": "Turn YouTube playlists into trackable courses (static site: HTML/CSS/vanilla JS + Firebase).",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "check": "for f in js/*.js; do node --check \"$f\" || exit 1; done",
+    "serve": "python3 -m http.server 8000",
+    "test:browser": "python3 tests/browser/responsive_check.py && python3 tests/browser/app_shell_check.py"
+  }
+}
